@@ -8,13 +8,6 @@ const PRESETS = [
   { name: 'DDoS',   traffic: 100, throughput: 95, users: 100 },
 ];
 
-const TRAFFIC_PATTERNS = [
-  { id: 'constant', name: 'Constant',       desc: 'Steady traffic level' },
-  { id: 'spike',    name: 'Spike',          desc: 'Sudden burst of traffic' },
-  { id: 'gradual',  name: 'Gradual Ramp',   desc: 'Slowly increasing load' },
-  { id: 'wave',     name: 'Wave / Periodic', desc: 'Oscillating traffic pattern' },
-];
-
 // Map slider % to approximate absolute numbers
 function toAbsoluteRps(pct) {
   if (pct === 0) return 0;
@@ -37,7 +30,6 @@ function formatNum(n) {
 }
 
 export default function TrafficPanel({ sliders, setSliders, open, onToggle, cloudColor }) {
-  const [pattern, setPattern] = useState('constant');
   const [showAbsolute, setShowAbsolute] = useState(true);
 
   const handleSlider = (key, val) => {
@@ -138,10 +130,10 @@ export default function TrafficPanel({ sliders, setSliders, open, onToggle, clou
             />
           </div>
 
-          {/* Traffic pattern */}
+          {/* Display toggle */}
           <div className="traffic-pattern-section">
             <div className="traffic-slider-row">
-              <label>Traffic Pattern</label>
+              <label>Display</label>
               <button
                 className="traffic-abs-toggle"
                 onClick={() => setShowAbsolute(p => !p)}
@@ -149,19 +141,6 @@ export default function TrafficPanel({ sliders, setSliders, open, onToggle, clou
               >
                 {showAbsolute ? 'ABS' : '%'}
               </button>
-            </div>
-            <div className="traffic-patterns">
-              {TRAFFIC_PATTERNS.map(p => (
-                <button
-                  key={p.id}
-                  className={`traffic-pattern-btn ${pattern === p.id ? 'active' : ''}`}
-                  style={pattern === p.id ? { borderColor: cloudColor, color: cloudColor } : undefined}
-                  onClick={() => setPattern(p.id)}
-                  title={p.desc}
-                >
-                  {p.name}
-                </button>
-              ))}
             </div>
           </div>
 
