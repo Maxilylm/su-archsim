@@ -76,6 +76,8 @@ export default function App() {
 
   // Add service from palette (click)
   const handleAddService = useCallback((serviceId) => {
+    // Clear any pending drag ref so the global listener effect doesn't pick up stale state
+    paletteDragRef.current = null;
     const cx = viewBox.x + viewBox.w / 2 + (Math.random() - 0.5) * 100;
     const cy = viewBox.y + viewBox.h / 2 + (Math.random() - 0.5) * 100;
     addNode(serviceId, cx, cy);
@@ -134,9 +136,9 @@ export default function App() {
     setPaletteDrag(null);
   }, [screenToSvg, addNode]);
 
-  // Global drag listeners for palette drag
+  // Global drag listeners for palette drag – always registered so they can
+  // catch mouseup/touchend even when the drag ref was set mid-render-cycle.
   useEffect(() => {
-    if (!paletteDragRef.current) return;
     const move = (e) => handlePaletteDragMove(e);
     const end = (e) => handlePaletteDragEnd(e);
     window.addEventListener('mousemove', move);
@@ -149,7 +151,7 @@ export default function App() {
       window.removeEventListener('touchmove', move);
       window.removeEventListener('touchend', end);
     };
-  });
+  }, [handlePaletteDragMove, handlePaletteDragEnd]);
 
   // ═══════════ NODE DRAG (MOUSE) ═══════════
 
