@@ -1,12 +1,25 @@
 import { useState, useCallback } from 'react';
 import { getService } from '../data/catalog';
 import { validateConnection } from '../data/connections';
+import { getDefaultTemplate } from '../data/templates';
 
 let nodeIdCounter = 1;
 
+// Build the default diagram on first load
+function buildInitialState() {
+  const template = getDefaultTemplate();
+  if (!template) return { nodes: [], edges: [] };
+  const data = template.build();
+  const maxId = Math.max(0, ...data.nodes.map(n => parseInt(n.id.split('_')[1]) || 0));
+  nodeIdCounter = maxId + 1;
+  return data;
+}
+
+const initialState = buildInitialState();
+
 export default function useDiagram() {
-  const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]);
+  const [nodes, setNodes] = useState(initialState.nodes);
+  const [edges, setEdges] = useState(initialState.edges);
   const [selectedId, setSelectedId] = useState(null);
   const [connectMode, setConnectMode] = useState(false);
   const [connectSource, setConnectSource] = useState(null);
@@ -164,6 +177,19 @@ export default function useDiagram() {
     }
   }, [showToast]);
 
+  // Load a template (replaces current diagram)
+  const loadTemplate = useCallback((template) => {
+    if (!template) return;
+    const data = template.build();
+    setNodes(data.nodes);
+    setEdges(data.edges);
+    const maxId = Math.max(0, ...data.nodes.map(n => parseInt(n.id.split('_')[1]) || 0));
+    nodeIdCounter = maxId + 1;
+    setSelectedId(null);
+    setConnectSource(null);
+    showToast(`Loaded: ${template.name}`, 'success');
+  }, [showToast]);
+
   const selectedNode = nodes.find(n => n.id === selectedId);
 
   return {
@@ -185,5 +211,6 @@ export default function useDiagram() {
     clearCanvas,
     exportDiagram,
     importDiagram,
+    loadTemplate,
   };
 }

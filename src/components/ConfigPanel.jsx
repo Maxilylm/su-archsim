@@ -1,4 +1,4 @@
-import { CATEGORIES, getService, getCloudLabel, getCloudDesc } from '../data/catalog';
+import { CATEGORIES, getService, getCloudLabel, getCloudDesc, getCloudConfigSchema } from '../data/catalog';
 import { computeNodeLoad, getMaxRps, getLoadColor, getStatusLabel } from '../data/traffic';
 
 export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRemove }) {
@@ -85,7 +85,7 @@ export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRe
       <div className="config-section">
         <h4 className="config-section-title">Configuration</h4>
 
-        {service.configSchema.map(field => (
+        {getCloudConfigSchema(node.serviceId, cloud).map(field => (
           <div key={field.key} className="config-field">
             <label className="config-field-label">{field.label}</label>
 

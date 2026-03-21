@@ -5,6 +5,7 @@ import CanvasNode from './components/CanvasNode';
 import CanvasEdge from './components/CanvasEdge';
 import ConfigPanel from './components/ConfigPanel';
 import TrafficPanel from './components/TrafficPanel';
+import { TEMPLATES } from './data/templates';
 import './App.css';
 
 const CLOUDS = {
@@ -22,6 +23,7 @@ export default function App() {
     nodes, edges, selectedId, selectedNode, connectMode, connectSource, toast,
     addNode, removeNode, moveNode, updateNodeConfig, handleNodeClick,
     removeEdge, toggleConnectMode, setSelectedId, clearCanvas, exportDiagram, importDiagram,
+    loadTemplate,
   } = useDiagram();
 
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
@@ -33,8 +35,16 @@ export default function App() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [sliders, setSliders] = useState({ traffic: 30, throughput: 25, users: 20 });
   const [trafficOpen, setTrafficOpen] = useState(true);
+  const [showExamples, setShowExamples] = useState(false);
 
   const cloudColor = CLOUDS[cloud].color;
+
+  // Handle cloud provider switch
+  const handleCloudSwitch = useCallback((newCloud) => {
+    setCloud(newCloud);
+    // Component names and configs automatically update via getCloudLabel/getCloudConfigSchema
+    // No need to reset the diagram - names update reactively
+  }, []);
 
   // Convert screen coords to SVG coords
   const screenToSvg = useCallback((screenX, screenY) => {
@@ -131,6 +141,7 @@ export default function App() {
     if (e.key === 'Escape') {
       setSelectedId(null);
       setSelectedEdgeId(null);
+      setShowExamples(false);
       if (connectMode) toggleConnectMode();
     }
   }, [selectedId, selectedEdgeId, connectMode, removeNode, removeEdge, setSelectedId, toggleConnectMode]);
@@ -162,6 +173,14 @@ export default function App() {
     input.click();
   };
 
+  // Load a template
+  const handleLoadTemplate = (template) => {
+    loadTemplate(template);
+    setShowExamples(false);
+    // Center view on the template
+    setViewBox({ x: 0, y: 0, w: 1200, h: 800 });
+  };
+
   return (
     <div className="app" tabIndex={0} onKeyDown={handleKeyDown}>
       {/* Header / Toolbar */}
@@ -185,11 +204,49 @@ export default function App() {
                   color: cloud === key ? c.color : undefined,
                   background: cloud === key ? `${c.color}15` : undefined,
                 }}
-                onClick={() => setCloud(key)}
+                onClick={() => handleCloudSwitch(key)}
               >
                 {c.name}
               </button>
             ))}
+          </div>
+
+          <div className="toolbar-divider" />
+
+          {/* Examples button */}
+          <div className="toolbar-examples-wrapper">
+            <button
+              className={`tool-btn ${showExamples ? 'active-tool' : ''}`}
+              onClick={() => setShowExamples(p => !p)}
+              title="Load architecture examples"
+            >
+              📐 Examples
+            </button>
+
+            {/* Examples dropdown */}
+            {showExamples && (
+              <div className="examples-dropdown">
+                <div className="examples-header">
+                  <h4>Architecture Examples</h4>
+                  <p>Load a pre-built architecture pattern</p>
+                </div>
+                <div className="examples-list">
+                  {TEMPLATES.map(t => (
+                    <button
+                      key={t.id}
+                      className="example-item"
+                      onClick={() => handleLoadTemplate(t)}
+                    >
+                      <span className="example-icon">{t.icon}</span>
+                      <div className="example-info">
+                        <span className="example-name">{t.name}</span>
+                        <span className="example-desc">{t.desc}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="toolbar-divider" />
@@ -200,7 +257,7 @@ export default function App() {
             onClick={toggleConnectMode}
             title="Connect components (C)"
           >
-            {connectMode ? '🔗 Connecting...' : '🔗 Connect'}
+            🔗 Connect
           </button>
 
           <button
@@ -302,7 +359,7 @@ export default function App() {
                   Click components in the palette to add them
                 </text>
                 <text fill="rgba(255,255,255,0.1)" fontSize="13" textAnchor="middle" y={15}>
-                  Drag to move • Scroll to zoom • Del to remove
+                  Or load an example from the toolbar above
                 </text>
               </g>
             )}
@@ -336,6 +393,11 @@ export default function App() {
           onRemove={removeNode}
         />
       </div>
+
+      {/* Examples overlay backdrop */}
+      {showExamples && (
+        <div className="examples-backdrop" onClick={() => setShowExamples(false)} />
+      )}
 
       {/* Toast */}
       {toast && (
