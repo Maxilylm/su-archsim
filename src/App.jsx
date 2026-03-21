@@ -4,6 +4,7 @@ import Palette from './components/Palette';
 import CanvasNode from './components/CanvasNode';
 import CanvasEdge from './components/CanvasEdge';
 import ConfigPanel from './components/ConfigPanel';
+import TrafficPanel from './components/TrafficPanel';
 import './App.css';
 
 const CLOUDS = {
@@ -30,6 +31,8 @@ export default function App() {
   const [panStart, setPanStart] = useState(null);
   const [draggingNode, setDraggingNode] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [sliders, setSliders] = useState({ traffic: 30, throughput: 25, users: 20 });
+  const [trafficOpen, setTrafficOpen] = useState(true);
 
   const cloudColor = CLOUDS[cloud].color;
 
@@ -271,6 +274,7 @@ export default function App() {
                   sourceNode={srcNode}
                   targetNode={tgtNode}
                   isSelected={selectedEdgeId === edge.id}
+                  sliders={sliders}
                   onClick={(e) => { e.stopPropagation(); setSelectedEdgeId(edge.id); setSelectedId(null); }}
                 />
               );
@@ -285,6 +289,7 @@ export default function App() {
                 isSelected={selectedId === node.id}
                 isConnectSource={connectSource === node.id}
                 connectMode={connectMode}
+                sliders={sliders}
                 onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
                 onClick={(e) => { e.stopPropagation(); handleNodeClick(node.id); setSelectedEdgeId(null); }}
               />
@@ -311,12 +316,22 @@ export default function App() {
             <span>Zoom: {Math.round(1200 / viewBox.w * 100)}%</span>
             {connectMode && <span className="status-connect">CONNECT MODE</span>}
           </div>
+
+          {/* Traffic panel (overlays bottom-left of canvas) */}
+          <TrafficPanel
+            sliders={sliders}
+            setSliders={setSliders}
+            open={trafficOpen}
+            onToggle={() => setTrafficOpen(p => !p)}
+            cloudColor={cloudColor}
+          />
         </div>
 
         {/* Config Panel */}
         <ConfigPanel
           node={selectedNode}
           cloud={cloud}
+          sliders={sliders}
           onUpdateConfig={updateNodeConfig}
           onRemove={removeNode}
         />

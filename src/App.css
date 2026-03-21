@@ -467,6 +467,181 @@ body {
   color: var(--text-dimmer);
 }
 
+/* ═══════════ TRAFFIC PANEL ═══════════ */
+.traffic-panel {
+  position: absolute;
+  bottom: 36px;
+  left: 12px;
+  width: 260px;
+  z-index: 5;
+}
+
+.traffic-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  background: rgba(17, 17, 24, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  backdrop-filter: blur(8px);
+}
+.traffic-toggle:hover { border-color: var(--border-hover); }
+.traffic-toggle-icon { font-size: 14px; }
+
+.traffic-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-dimmer);
+  transition: transform 0.2s;
+}
+.traffic-arrow.open { transform: rotate(90deg); }
+
+.traffic-body {
+  margin-top: 6px;
+  padding: 12px;
+  background: rgba(17, 17, 24, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+}
+
+.traffic-presets {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.traffic-preset {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.traffic-preset:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+.traffic-slider-group { margin-bottom: 10px; }
+
+.traffic-slider-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.traffic-slider-row label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.traffic-val {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255,255,255,0.6);
+}
+
+.traffic-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  outline: none;
+  cursor: pointer;
+}
+
+.traffic-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent, #fff);
+  border: 2px solid #0a0a0f;
+  cursor: pointer;
+}
+
+.traffic-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent, #fff);
+  border: 2px solid #0a0a0f;
+  cursor: pointer;
+}
+
+.traffic-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--text-dimmer);
+  margin-top: 8px;
+}
+
+.tl-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+/* ═══════════ CONFIG STATS ═══════════ */
+.config-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.config-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.config-stat-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.3);
+}
+
+.config-stat-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.config-loadbar-bg {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.config-loadbar-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
 /* ═══════════ TOAST ═══════════ */
 .toast {
   position: fixed;

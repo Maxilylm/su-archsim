@@ -1,6 +1,7 @@
 import { CATEGORIES, getService, getCloudLabel, getCloudDesc } from '../data/catalog';
+import { computeNodeLoad, getMaxRps, getLoadColor, getStatusLabel } from '../data/traffic';
 
-export default function ConfigPanel({ node, cloud, onUpdateConfig, onRemove }) {
+export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRemove }) {
   if (!node) {
     return (
       <div className="config-panel">
@@ -35,6 +36,51 @@ export default function ConfigPanel({ node, cloud, onUpdateConfig, onRemove }) {
           &#x2715; Remove
         </button>
       </div>
+
+      {/* Traffic stats */}
+      {(() => {
+        const loadPct = computeNodeLoad(node.serviceId, node.category, sliders);
+        const maxRps = getMaxRps(node.serviceId);
+        const currentRps = Math.round(maxRps * loadPct);
+        const loadColor = getLoadColor(loadPct);
+        const status = getStatusLabel(loadPct);
+        return (
+          <div className="config-section">
+            <h4 className="config-section-title">Traffic Status</h4>
+            <div className="config-stats">
+              <div className="config-stat">
+                <span className="config-stat-label">Status</span>
+                <span className="config-stat-value">{status.emoji} {status.label}</span>
+              </div>
+              <div className="config-stat">
+                <span className="config-stat-label">Current Load</span>
+                <span className="config-stat-value" style={{ color: loadColor }}>
+                  {currentRps >= 1000 ? `${(currentRps / 1000).toFixed(1)}k` : currentRps} rps
+                </span>
+              </div>
+              <div className="config-stat">
+                <span className="config-stat-label">Max Capacity</span>
+                <span className="config-stat-value">
+                  {maxRps >= 1000 ? `${(maxRps / 1000).toFixed(0)}k` : maxRps} rps
+                </span>
+              </div>
+              <div className="config-stat">
+                <span className="config-stat-label">Utilization</span>
+                <span className="config-stat-value" style={{ color: loadColor }}>
+                  {Math.round(loadPct * 100)}%
+                </span>
+              </div>
+            </div>
+            {/* Mini load bar */}
+            <div className="config-loadbar-bg">
+              <div
+                className="config-loadbar-fill"
+                style={{ width: `${Math.round(loadPct * 100)}%`, background: loadColor, transition: 'all 0.4s ease' }}
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="config-section">
         <h4 className="config-section-title">Configuration</h4>

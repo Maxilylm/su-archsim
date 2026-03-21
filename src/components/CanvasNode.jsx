@@ -1,17 +1,23 @@
-import { useRef, useState, useCallback } from 'react';
 import { CATEGORIES } from '../data/catalog';
 import { getCloudLabel, getCloudDesc } from '../data/catalog';
+import { computeNodeLoad, getMaxRps, getLoadColor } from '../data/traffic';
 
 export default function CanvasNode({
-  node, cloud, isSelected, isConnectSource, connectMode, onMouseDown, onClick,
+  node, cloud, isSelected, isConnectSource, connectMode, sliders, onMouseDown, onClick,
 }) {
   const catColor = CATEGORIES[node.category]?.color || '#888';
   const catIcon = CATEGORIES[node.category]?.icon || '?';
   const label = getCloudLabel(node.serviceId, cloud);
   const desc = getCloudDesc(node.serviceId, cloud);
 
+  const loadPct = computeNodeLoad(node.serviceId, node.category, sliders);
+  const loadColor = getLoadColor(loadPct);
+  const maxRps = getMaxRps(node.serviceId);
+  const currentRps = Math.round(maxRps * loadPct);
+  const hasTraffic = loadPct > 0.01;
+
   const w = 160;
-  const h = 72;
+  const h = 88; // taller to fit load bar
 
   return (
     <g
@@ -20,6 +26,18 @@ export default function CanvasNode({
       onClick={onClick}
       style={{ cursor: connectMode ? 'crosshair' : 'grab' }}
     >
+      {/* Critical pulse */}
+      {loadPct > 0.85 && (
+        <rect
+          x={-w / 2 - 4} y={-h / 2 - 4}
+          width={w + 8} height={h + 8}
+          rx={13} fill="none"
+          stroke="#ef4444" strokeWidth={2}
+        >
+          <animate attributeName="opacity" values="0.7;0.15;0.7" dur="1s" repeatCount="indefinite" />
+        </rect>
+      )}
+
       {/* Selection highlight */}
       {isSelected && (
         <rect
@@ -98,20 +116,66 @@ export default function CanvasNode({
         {desc.length > 28 ? desc.slice(0, 28) + '…' : desc}
       </text>
 
+      {/* ─── Load bar section ─── */}
+      {/* Load bar background */}
+      <rect
+        x={-w / 2 + 10}
+        y={h / 2 - 32}
+        width={w - 20}
+        height={5}
+        rx={2.5}
+        fill="rgba(255,255,255,0.06)"
+      />
+      {/* Load bar fill */}
+      {hasTraffic && (
+        <rect
+          x={-w / 2 + 10}
+          y={h / 2 - 32}
+          width={Math.max(2, (w - 20) * loadPct)}
+          height={5}
+          rx={2.5}
+          fill={loadColor}
+          style={{ transition: 'width 0.4s ease, fill 0.4s ease' }}
+        />
+      )}
+
+      {/* RPS and percentage */}
+      <text
+        x={-w / 2 + 10}
+        y={h / 2 - 20}
+        fill={hasTraffic ? loadColor : 'rgba(255,255,255,0.15)'}
+        fontSize="8"
+        fontWeight="600"
+        fontFamily="'JetBrains Mono', monospace"
+      >
+        {hasTraffic ? (currentRps >= 1000 ? `${(currentRps / 1000).toFixed(1)}k rps` : `${currentRps} rps`) : 'idle'}
+      </text>
+      <text
+        x={w / 2 - 10}
+        y={h / 2 - 20}
+        fill={hasTraffic ? loadColor : 'rgba(255,255,255,0.15)'}
+        fontSize="8"
+        fontWeight="700"
+        textAnchor="end"
+        fontFamily="'JetBrains Mono', monospace"
+      >
+        {Math.round(loadPct * 100)}%
+      </text>
+
       {/* Category badge */}
       <rect
         x={-w / 2 + 12}
-        y={h / 2 - 20}
+        y={h / 2 - 14}
         width={w - 24}
-        height={14}
+        height={12}
         rx={3}
-        fill={`${catColor}20`}
+        fill={`${catColor}18`}
       />
       <text
         x={0}
-        y={h / 2 - 10}
+        y={h / 2 - 5}
         fill={catColor}
-        fontSize="8"
+        fontSize="7"
         fontWeight="600"
         textAnchor="middle"
         fontFamily="'JetBrains Mono', monospace"
