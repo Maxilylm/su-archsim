@@ -700,6 +700,288 @@ const SERVICES = [
 
 export default SERVICES;
 
+// Cloud-specific config overrides: { serviceId: { cloud: { fieldKey: { options?, default?, label?, min?, max? } } } }
+// When a cloud is selected, these override the base configSchema fields
+export const CLOUD_CONFIG_OVERRIDES = {
+  ec2: {
+    gcp: {
+      instanceType: {
+        label: 'Machine Type',
+        options: [
+          'e2-micro', 'e2-small', 'e2-medium', 'e2-standard-2',
+          'n2-standard-2', 'n2-standard-4', 'n2-standard-8', 'n2-standard-16',
+          'c3-standard-4', 'c3-standard-8',
+          'a2-highgpu-1g', 'g2-standard-4',
+        ],
+        default: 'n2-standard-4',
+      },
+      os: {
+        label: 'OS Image',
+        options: ['Debian 12', 'Ubuntu 24.04', 'Rocky Linux 9', 'Windows Server 2022', 'Container-Optimized OS', 'SLES 15'],
+        default: 'Debian 12',
+      },
+      storageType: { label: 'Disk Type', options: ['pd-ssd', 'pd-balanced', 'pd-standard', 'pd-extreme'], default: 'pd-balanced' },
+      storageGb: { label: 'Boot Disk (GB)' },
+      spot: { label: 'Preemptible VM' },
+    },
+    azure: {
+      instanceType: {
+        label: 'VM Size',
+        options: [
+          'Standard_B1s', 'Standard_B2s', 'Standard_B2ms', 'Standard_B4ms',
+          'Standard_D2s_v5', 'Standard_D4s_v5', 'Standard_D8s_v5', 'Standard_D16s_v5',
+          'Standard_E2s_v5', 'Standard_E4s_v5',
+          'Standard_NC6s_v3', 'Standard_NC4as_T4_v3',
+        ],
+        default: 'Standard_D4s_v5',
+      },
+      os: {
+        label: 'OS Image',
+        options: ['Ubuntu 24.04', 'Windows Server 2022', 'RHEL 9', 'Debian 12', 'SLES 15', 'CBL-Mariner 2.0'],
+        default: 'Ubuntu 24.04',
+      },
+      storageType: { label: 'Disk Type', options: ['Premium SSD v2', 'Premium SSD', 'Standard SSD', 'Standard HDD', 'Ultra Disk'], default: 'Premium SSD' },
+      storageGb: { label: 'OS Disk (GB)' },
+      spot: { label: 'Spot VM' },
+    },
+  },
+  rds: {
+    gcp: {
+      engine: { options: ['PostgreSQL 16', 'MySQL 8.4', 'SQL Server 2022'], default: 'PostgreSQL 16' },
+      instanceClass: {
+        label: 'Machine Type',
+        options: [
+          'db-f1-micro', 'db-g1-small', 'db-n1-standard-1', 'db-n1-standard-2',
+          'db-n1-standard-4', 'db-n1-standard-8', 'db-n1-standard-16',
+          'db-n1-highmem-2', 'db-n1-highmem-4', 'db-n1-highmem-8',
+        ],
+        default: 'db-n1-standard-2',
+      },
+      storageType: { label: 'Storage Type', options: ['SSD', 'HDD'], default: 'SSD' },
+      performanceInsights: { label: 'Query Insights' },
+    },
+    azure: {
+      engine: { options: ['PostgreSQL 16', 'MySQL 8.4', 'SQL Server 2022'], default: 'PostgreSQL 16' },
+      instanceClass: {
+        label: 'Compute Tier',
+        options: [
+          'Basic 1 vCore', 'Basic 2 vCores',
+          'GP Standard_D2ds_v4', 'GP Standard_D4ds_v4', 'GP Standard_D8ds_v4',
+          'BC Standard_E2ds_v4', 'BC Standard_E4ds_v4', 'BC Standard_E8ds_v4',
+          'Hyperscale 2 vCores', 'Hyperscale 4 vCores',
+        ],
+        default: 'GP Standard_D4ds_v4',
+      },
+      storageType: { label: 'Storage Type', options: ['Premium SSD', 'Standard SSD'], default: 'Premium SSD' },
+      performanceInsights: { label: 'Intelligent Performance' },
+    },
+  },
+  ecs: {
+    gcp: {
+      launchType: { label: 'Execution Environment', options: ['Fully Managed', 'GKE'], default: 'Fully Managed' },
+      serviceConnect: { label: 'VPC Connector' },
+    },
+    azure: {
+      launchType: { label: 'Environment Type', options: ['Consumption', 'Dedicated'], default: 'Consumption' },
+      serviceConnect: { label: 'Dapr Enabled' },
+    },
+  },
+  eks: {
+    gcp: {
+      nodeType: { label: 'Mode', options: ['Autopilot', 'Standard'], default: 'Autopilot' },
+      instanceType: {
+        label: 'Node Machine Type',
+        options: ['e2-medium', 'e2-standard-2', 'n2-standard-2', 'n2-standard-4', 'n2-standard-8', 'c3-standard-4'],
+        default: 'n2-standard-4',
+      },
+      logging: { label: 'Cloud Logging' },
+    },
+    azure: {
+      nodeType: { label: 'Node Pool Type', options: ['System', 'User', 'Virtual'], default: 'System' },
+      instanceType: {
+        label: 'Node VM Size',
+        options: ['Standard_DS2_v2', 'Standard_D4s_v5', 'Standard_D8s_v5', 'Standard_E4s_v5', 'Standard_NC6s_v3'],
+        default: 'Standard_D4s_v5',
+      },
+      logging: { label: 'Azure Monitor' },
+    },
+  },
+  lambda: {
+    gcp: {
+      runtime: { options: ['Node.js 22', 'Python 3.13', 'Java 21', 'Go 1.22', '.NET 8', 'Ruby 3.3', 'PHP 8.3'], default: 'Node.js 22' },
+      snapStart: { label: 'Min Instances' },
+      provisionedConcurrency: { label: 'Min Instances', min: 0, max: 100, default: 0 },
+      ephemeralStorage: { label: 'Tmp Storage (MB)' },
+    },
+    azure: {
+      runtime: { options: ['Node.js 22', 'Python 3.13', 'Java 21', '.NET 8', 'PowerShell 7.4', 'Custom Handler'], default: '.NET 8' },
+      snapStart: { label: 'Always Ready Instances' },
+      ephemeralStorage: { label: 'Temp Storage (MB)' },
+    },
+  },
+  s3: {
+    gcp: {
+      storageClass: {
+        options: ['Standard', 'Nearline', 'Coldline', 'Archive', 'Autoclass'],
+        default: 'Standard',
+      },
+      encryption: { options: ['Google-managed', 'Cloud KMS', 'Customer-supplied'], default: 'Google-managed' },
+      replication: { label: 'Multi-Region / Dual-Region' },
+    },
+    azure: {
+      storageClass: {
+        label: 'Access Tier',
+        options: ['Hot', 'Cool', 'Cold', 'Archive'],
+        default: 'Hot',
+      },
+      encryption: { options: ['Microsoft-managed', 'Customer-managed (Key Vault)'], default: 'Microsoft-managed' },
+      replication: { label: 'Geo-Redundant Replication' },
+    },
+  },
+  dynamodb: {
+    gcp: {
+      capacityMode: { label: 'Mode', options: ['Native', 'Datastore'], default: 'Native' },
+      readCapacity: { label: 'Max Read Ops/sec' },
+      writeCapacity: { label: 'Max Write Ops/sec' },
+      dax: { label: 'Memcache Integration' },
+      streams: { label: 'Change Streams' },
+      encryption: { options: ['Google-managed', 'Cloud KMS'], default: 'Google-managed' },
+      pitr: { label: 'Point-in-Time Recovery' },
+    },
+    azure: {
+      capacityMode: { label: 'Throughput Mode', options: ['Serverless', 'Autoscale', 'Manual'], default: 'Serverless' },
+      readCapacity: { label: 'Max RU/s (read)' },
+      writeCapacity: { label: 'Max RU/s (write)' },
+      dax: { label: 'Integrated Cache' },
+      streams: { label: 'Change Feed' },
+      encryption: { options: ['Service-managed', 'Customer-managed (Key Vault)'], default: 'Service-managed' },
+      globalTables: { label: 'Multi-Region Writes' },
+    },
+  },
+  elasticache: {
+    gcp: {
+      engine: { label: 'Tier', options: ['Basic', 'Standard', 'Redis Cluster'], default: 'Standard' },
+      nodeType: {
+        label: 'Tier Capacity',
+        options: ['M1 (1GB)', 'M2 (4GB)', 'M3 (10GB)', 'M4 (35GB)', 'M5 (100GB)'],
+        default: 'M3 (10GB)',
+      },
+    },
+    azure: {
+      engine: { label: 'Tier', options: ['Basic', 'Standard', 'Premium', 'Enterprise', 'Enterprise Flash'], default: 'Premium' },
+      nodeType: {
+        label: 'Cache Size',
+        options: ['C0 (250MB)', 'C1 (1GB)', 'C2 (2.5GB)', 'C3 (6GB)', 'P1 (6GB)', 'P2 (13GB)', 'P3 (26GB)', 'P4 (53GB)'],
+        default: 'P1 (6GB)',
+      },
+    },
+  },
+  sagemaker: {
+    gcp: {
+      instanceType: {
+        label: 'Training Machine',
+        options: ['n1-standard-4', 'n1-standard-8', 'n1-highmem-8', 'a2-highgpu-1g', 'a2-highgpu-2g'],
+        default: 'a2-highgpu-1g',
+      },
+      endpointInstance: {
+        label: 'Endpoint Machine',
+        options: ['n1-standard-2', 'n1-standard-4', 'n1-highmem-4', 'a2-highgpu-1g'],
+        default: 'n1-standard-4',
+      },
+    },
+    azure: {
+      instanceType: {
+        label: 'Training VM',
+        options: ['Standard_DS3_v2', 'Standard_NC6s_v3', 'Standard_NC12s_v3', 'Standard_ND40rs_v2'],
+        default: 'Standard_NC6s_v3',
+      },
+      endpointInstance: {
+        label: 'Endpoint VM',
+        options: ['Standard_DS2_v2', 'Standard_DS3_v2', 'Standard_NC6s_v3'],
+        default: 'Standard_DS2_v2',
+      },
+    },
+  },
+  bedrock: {
+    gcp: {
+      model: {
+        options: ['Gemini 1.5 Pro', 'Gemini 1.5 Flash', 'PaLM 2', 'Imagen 2', 'Codey', 'Chirp'],
+        default: 'Gemini 1.5 Pro',
+      },
+      provisionedThroughput: { label: 'Provisioned Throughput' },
+      guardrails: { label: 'Safety Filters' },
+      knowledgeBase: { label: 'Grounding (RAG)' },
+      fineTuning: { label: 'Model Tuning' },
+    },
+    azure: {
+      model: {
+        options: ['GPT-4o', 'GPT-4 Turbo', 'GPT-3.5 Turbo', 'DALL-E 3', 'Whisper', 'Text Embedding 3'],
+        default: 'GPT-4o',
+      },
+      provisionedThroughput: { label: 'Provisioned Throughput Units' },
+      guardrails: { label: 'Content Filtering' },
+      knowledgeBase: { label: 'On Your Data (RAG)' },
+      fineTuning: { label: 'Fine-Tuning' },
+    },
+  },
+  ebs: {
+    gcp: {
+      volumeType: { label: 'Disk Type', options: ['pd-ssd', 'pd-balanced', 'pd-standard', 'pd-extreme', 'hyperdisk-extreme', 'hyperdisk-balanced'], default: 'pd-balanced' },
+      iops: { label: 'Provisioned IOPS' },
+    },
+    azure: {
+      volumeType: { label: 'Disk Type', options: ['Premium SSD v2', 'Premium SSD', 'Standard SSD', 'Standard HDD', 'Ultra Disk'], default: 'Premium SSD' },
+      iops: { label: 'Provisioned IOPS' },
+    },
+  },
+  emr: {
+    gcp: {
+      masterType: {
+        label: 'Master Machine',
+        options: ['n2-standard-2', 'n2-standard-4', 'n2-highmem-4', 'n2-highmem-8'],
+        default: 'n2-standard-4',
+      },
+      coreType: {
+        label: 'Worker Machine',
+        options: ['n2-standard-4', 'n2-standard-8', 'n2-highmem-4', 'n2-highmem-8', 'c3-standard-8'],
+        default: 'n2-highmem-4',
+      },
+      spot: { label: 'Preemptible Workers' },
+    },
+    azure: {
+      masterType: {
+        label: 'Head Node',
+        options: ['Standard_D4s_v5', 'Standard_D8s_v5', 'Standard_E4s_v5', 'Standard_E8s_v5'],
+        default: 'Standard_D4s_v5',
+      },
+      coreType: {
+        label: 'Worker Node',
+        options: ['Standard_D4s_v5', 'Standard_D8s_v5', 'Standard_E4s_v5', 'Standard_E8s_v5'],
+        default: 'Standard_E4s_v5',
+      },
+      spot: { label: 'Spot Workers' },
+    },
+  },
+  mq: {
+    gcp: {
+      engine: { label: 'Engine', options: ['Apache Kafka', 'Confluent Platform'], default: 'Apache Kafka' },
+      instanceType: {
+        label: 'Machine Type',
+        options: ['n2-standard-2', 'n2-standard-4', 'n2-standard-8'],
+        default: 'n2-standard-4',
+      },
+    },
+    azure: {
+      engine: { label: 'Tier', options: ['Basic', 'Standard', 'Premium'], default: 'Standard' },
+      instanceType: {
+        label: 'Messaging Units',
+        options: ['1 Unit', '2 Units', '4 Units', '8 Units', '16 Units'],
+        default: '1 Unit',
+      },
+    },
+  },
+};
+
 // Helper: get service by id
 export function getService(id) {
   return SERVICES.find(s => s.id === id);
@@ -725,4 +1007,18 @@ export function getCloudLabel(serviceId, cloud) {
 export function getCloudDesc(serviceId, cloud) {
   const svc = getService(serviceId);
   return svc?.clouds[cloud]?.desc || '';
+}
+
+// Helper: get cloud-specific config schema for a service
+export function getCloudConfigSchema(serviceId, cloud) {
+  const svc = getService(serviceId);
+  if (!svc) return [];
+  const overrides = CLOUD_CONFIG_OVERRIDES[serviceId]?.[cloud];
+  if (!overrides) return svc.configSchema;
+
+  return svc.configSchema.map(field => {
+    const override = overrides[field.key];
+    if (!override) return field;
+    return { ...field, ...override };
+  });
 }
