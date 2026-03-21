@@ -1,8 +1,9 @@
+import { memo } from 'react';
 import { CATEGORIES } from '../data/catalog';
 import { getConnectionLabel } from '../data/connections';
 import { computeNodeLoad, getLoadColor } from '../data/traffic';
 
-export default function CanvasEdge({ edge, sourceNode, targetNode, isSelected, sliders, onClick }) {
+const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected, sliders, onClick }) {
   if (!sourceNode || !targetNode) return null;
 
   const x1 = sourceNode.x;
@@ -47,7 +48,7 @@ export default function CanvasEdge({ edge, sourceNode, targetNode, isSelected, s
   const dotSize = hasTraffic ? 2 + edgeLoad * 3 : 2;
 
   return (
-    <g onClick={onClick} style={{ cursor: 'pointer' }}>
+    <g onClick={onClick} style={{ cursor: 'pointer' }} role="button" aria-label={`Connection: ${connLabel}`}>
       {/* Hit area */}
       <path d={pathD} fill="none" stroke="transparent" strokeWidth={14} />
 
@@ -106,4 +107,6 @@ export default function CanvasEdge({ edge, sourceNode, targetNode, isSelected, s
       )}
     </g>
   );
-}
+});
+
+export default CanvasEdge;

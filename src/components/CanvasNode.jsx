@@ -1,8 +1,10 @@
+import { memo } from 'react';
 import { CATEGORIES } from '../data/catalog';
 import { getCloudLabel, getCloudDesc } from '../data/catalog';
 import { computeNodeLoad, getMaxRps, getLoadColor } from '../data/traffic';
+import { formatRps } from '../data/traffic';
 
-export default function CanvasNode({
+const CanvasNode = memo(function CanvasNode({
   node, cloud, isSelected, isConnectSource, connectMode, sliders, onMouseDown, onTouchStart, onClick,
 }) {
   const catColor = CATEGORIES[node.category]?.color || '#888';
@@ -26,6 +28,8 @@ export default function CanvasNode({
       onTouchStart={onTouchStart}
       onClick={onClick}
       style={{ cursor: connectMode ? 'crosshair' : 'grab', touchAction: 'none' }}
+      role="button"
+      aria-label={`${label} - ${CATEGORIES[node.category]?.label} - ${Math.round(loadPct * 100)}% utilization`}
     >
       {/* Critical pulse */}
       {loadPct > 0.85 && (
@@ -149,7 +153,7 @@ export default function CanvasNode({
         fontWeight="600"
         fontFamily="'JetBrains Mono', monospace"
       >
-        {hasTraffic ? (currentRps >= 1000 ? `${(currentRps / 1000).toFixed(1)}k rps` : `${currentRps} rps`) : 'idle'}
+        {hasTraffic ? `${formatRps(currentRps)} rps` : 'idle'}
       </text>
       <text
         x={w / 2 - 10}
@@ -195,4 +199,6 @@ export default function CanvasNode({
       )}
     </g>
   );
-}
+});
+
+export default CanvasNode;

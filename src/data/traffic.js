@@ -72,6 +72,15 @@ export function getCurrentRps(serviceId, category, sliders) {
 }
 
 /**
+ * Format RPS value for display (e.g., 1500 -> "1.5k")
+ */
+export function formatRps(rps) {
+  if (rps >= 1000000) return `${(rps / 1000000).toFixed(1)}M`;
+  if (rps >= 1000) return `${(rps / 1000).toFixed(1)}k`;
+  return String(rps);
+}
+
+/**
  * Get load color: green -> yellow -> red
  */
 export function getLoadColor(loadPct) {

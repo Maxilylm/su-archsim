@@ -1,18 +1,15 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { getService } from '../data/catalog';
 import { validateConnection } from '../data/connections';
 import { getDefaultTemplate } from '../data/templates';
 
-let nodeIdCounter = 1;
-
 // Build the default diagram on first load
 function buildInitialState() {
   const template = getDefaultTemplate();
-  if (!template) return { nodes: [], edges: [] };
+  if (!template) return { nodes: [], edges: [], maxId: 1 };
   const data = template.build();
   const maxId = Math.max(0, ...data.nodes.map(n => parseInt(n.id.split('_')[1]) || 0));
-  nodeIdCounter = maxId + 1;
-  return data;
+  return { ...data, maxId: maxId + 1 };
 }
 
 const initialState = buildInitialState();
@@ -23,11 +20,14 @@ export default function useDiagram() {
   const [selectedId, setSelectedId] = useState(null);
   const [connectMode, setConnectMode] = useState(false);
   const [connectSource, setConnectSource] = useState(null);
+  const nodeIdCounterRef = useRef(initialState.maxId);
   const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
   const showToast = useCallback((msg, type = 'error') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
   // Add a new node to the canvas
@@ -41,7 +41,7 @@ export default function useDiagram() {
       config[field.key] = field.default;
     }
 
-    const id = `node_${nodeIdCounter++}`;
+    const id = `node_${nodeIdCounterRef.current++}`;
     setNodes(prev => [...prev, {
       id,
       serviceId,
@@ -58,9 +58,9 @@ export default function useDiagram() {
   const removeNode = useCallback((nodeId) => {
     setNodes(prev => prev.filter(n => n.id !== nodeId));
     setEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
-    if (selectedId === nodeId) setSelectedId(null);
-    if (connectSource === nodeId) setConnectSource(null);
-  }, [selectedId, connectSource]);
+    setSelectedId(prev => prev === nodeId ? null : prev);
+    setConnectSource(prev => prev === nodeId ? null : prev);
+  }, []);
 
   // Move a node
   const moveNode = useCallback((nodeId, x, y) => {
@@ -152,15 +152,15 @@ export default function useDiagram() {
     setEdges([]);
     setSelectedId(null);
     setConnectSource(null);
-    nodeIdCounter = 1;
+    nodeIdCounterRef.current = 1;
   }, []);
 
-  // Export diagram as JSON
-  const exportDiagram = useCallback(() => {
-    return JSON.stringify({ nodes, edges }, null, 2);
+  // Export diagram as JSON (cloud is passed in by caller)
+  const exportDiagram = useCallback((cloud) => {
+    return JSON.stringify({ cloud, nodes, edges }, null, 2);
   }, [nodes, edges]);
 
-  // Import diagram from JSON
+  // Import diagram from JSON — returns cloud provider if present
   const importDiagram = useCallback((json) => {
     try {
       const data = JSON.parse(json);
@@ -168,13 +168,15 @@ export default function useDiagram() {
         setNodes(data.nodes);
         setEdges(data.edges);
         const maxId = Math.max(0, ...data.nodes.map(n => parseInt(n.id.split('_')[1]) || 0));
-        nodeIdCounter = maxId + 1;
+        nodeIdCounterRef.current = maxId + 1;
         setSelectedId(null);
         showToast('Diagram imported', 'success');
+        return data.cloud || null;
       }
     } catch {
       showToast('Invalid diagram JSON', 'error');
     }
+    return null;
   }, [showToast]);
 
   // Load a template (replaces current diagram)
@@ -184,7 +186,7 @@ export default function useDiagram() {
     setNodes(data.nodes);
     setEdges(data.edges);
     const maxId = Math.max(0, ...data.nodes.map(n => parseInt(n.id.split('_')[1]) || 0));
-    nodeIdCounter = maxId + 1;
+    nodeIdCounterRef.current = maxId + 1;
     setSelectedId(null);
     setConnectSource(null);
     showToast(`Loaded: ${template.name}`, 'success');

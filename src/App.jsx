@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import useDiagram from './hooks/useDiagram';
 import Palette from './components/Palette';
 import CanvasNode from './components/CanvasNode';
@@ -14,6 +14,18 @@ const CLOUDS = {
   azure: { name: 'Azure',        color: '#0078D4' },
 };
 
+// Canvas constants
+const INITIAL_VIEWBOX = { x: 0, y: 0, w: 1200, h: 800 };
+const VIEWBOX_MIN_W = 400;
+const VIEWBOX_MAX_W = 4000;
+const VIEWBOX_MIN_H = 300;
+const VIEWBOX_MAX_H = 3000;
+const ZOOM_IN_FACTOR = 0.9;
+const ZOOM_OUT_FACTOR = 1.1;
+const DRAG_THRESHOLD = 5;
+const CANVAS_BG_SIZE = 15000;
+const MOBILE_BREAKPOINT = 768;
+
 export default function App() {
   const [cloud, setCloud] = useState('aws');
   const {
@@ -25,13 +37,13 @@ export default function App() {
 
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const svgRef = useRef(null);
-  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 1200, h: 800 });
+  const [viewBox, setViewBox] = useState(INITIAL_VIEWBOX);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState(null);
   const [draggingNode, setDraggingNode] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [sliders, setSliders] = useState({ traffic: 30, throughput: 25, users: 20 });
-  const [trafficOpen, setTrafficOpen] = useState(() => window.innerWidth > 768);
+  const [trafficOpen, setTrafficOpen] = useState(() => window.innerWidth > MOBILE_BREAKPOINT);
   const [showExamples, setShowExamples] = useState(false);
 
   // Mobile state
@@ -48,7 +60,7 @@ export default function App() {
 
   // Detect mobile
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
+    const check = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -58,6 +70,9 @@ export default function App() {
   const showMobileConfig = isMobile && selectedNode && mobileConfigOpen;
 
   const cloudColor = CLOUDS[cloud].color;
+
+  // O(1) node lookups for edge rendering
+  const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
   const handleCloudSwitch = useCallback((newCloud) => {
     setCloud(newCloud);
@@ -102,7 +117,7 @@ export default function App() {
     // Start drag after 5px threshold
     if (!ref.isDragging) {
       const dist = Math.hypot(clientX - ref.startX, clientY - ref.startY);
-      if (dist < 5) return;
+      if (dist < DRAG_THRESHOLD) return;
       ref.isDragging = true;
     }
 
@@ -190,12 +205,15 @@ export default function App() {
       return;
     }
     if (isPanning && panStart) {
-      const dx = (e.clientX - panStart.x) / svgRef.current.getBoundingClientRect().width * viewBox.w;
-      const dy = (e.clientY - panStart.y) / svgRef.current.getBoundingClientRect().height * viewBox.h;
-      setViewBox(prev => ({ ...prev, x: prev.x - dx, y: prev.y - dy }));
+      const rect = svgRef.current.getBoundingClientRect();
+      setViewBox(prev => {
+        const dx = (e.clientX - panStart.x) / rect.width * prev.w;
+        const dy = (e.clientY - panStart.y) / rect.height * prev.h;
+        return { ...prev, x: prev.x - dx, y: prev.y - dy };
+      });
       setPanStart({ x: e.clientX, y: e.clientY });
     }
-  }, [draggingNode, isPanning, panStart, viewBox, screenToSvg, moveNode, dragOffset]);
+  }, [draggingNode, isPanning, panStart, screenToSvg, moveNode, dragOffset]);
 
   const handleMouseUp = useCallback(() => {
     setDraggingNode(null);
@@ -204,7 +222,7 @@ export default function App() {
   }, []);
 
   const handleCanvasMouseDown = useCallback((e) => {
-    if (e.target === svgRef.current || e.target.tagName === 'rect' && e.target.classList.contains('canvas-bg')) {
+    if (e.target === svgRef.current || (e.target.tagName === 'rect' && e.target.classList.contains('canvas-bg'))) {
       setIsPanning(true);
       setPanStart({ x: e.clientX, y: e.clientY });
       setSelectedId(null);
@@ -259,8 +277,8 @@ export default function App() {
         const svgCoord = screenToSvg(midX, midY);
 
         setViewBox(prev => {
-          const newW = Math.max(400, Math.min(4000, prev.w * scale));
-          const newH = Math.max(300, Math.min(3000, prev.h * scale));
+          const newW = Math.max(VIEWBOX_MIN_W, Math.min(VIEWBOX_MAX_W, prev.w * scale));
+          const newH = Math.max(VIEWBOX_MIN_H, Math.min(VIEWBOX_MAX_H, prev.h * scale));
           const ratio = newW / prev.w;
           return {
             x: svgCoord.x - (svgCoord.x - prev.x) * ratio,
@@ -306,7 +324,7 @@ export default function App() {
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
-    const scale = e.deltaY > 0 ? 1.1 : 0.9;
+    const scale = e.deltaY > 0 ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR;
     const svgCoord = screenToSvg(e.clientX, e.clientY);
 
     setViewBox(prev => {
@@ -325,6 +343,10 @@ export default function App() {
   // ═══════════ KEYBOARD ═══════════
 
   const handleKeyDown = useCallback((e) => {
+    // Don't intercept keys when user is typing in an input field
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
     if (e.key === 'Delete' || e.key === 'Backspace') {
       if (selectedId) {
         removeNode(selectedId);
@@ -345,7 +367,7 @@ export default function App() {
   // ═══════════ EXPORT/IMPORT ═══════════
 
   const handleExport = () => {
-    const json = exportDiagram();
+    const json = exportDiagram(cloud);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -363,7 +385,10 @@ export default function App() {
       const file = e.target.files[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (ev) => importDiagram(ev.target.result);
+        reader.onload = (ev) => {
+          const importedCloud = importDiagram(ev.target.result);
+          if (importedCloud && CLOUDS[importedCloud]) setCloud(importedCloud);
+        };
         reader.readAsText(file);
       }
     };
@@ -373,7 +398,7 @@ export default function App() {
   const handleLoadTemplate = (template) => {
     loadTemplate(template);
     setShowExamples(false);
-    setViewBox({ x: 0, y: 0, w: 1200, h: 800 });
+    setViewBox(INITIAL_VIEWBOX);
   };
 
   return (
@@ -482,7 +507,9 @@ export default function App() {
           <button className="tool-btn" onClick={handleImport} title="Import diagram">
             📥 Import
           </button>
-          <button className="tool-btn danger" onClick={clearCanvas} title="Clear canvas">
+          <button className="tool-btn danger" onClick={() => {
+            if (nodes.length === 0 || window.confirm('Clear entire canvas? This cannot be undone.')) clearCanvas();
+          }} title="Clear canvas">
             ⚠️ Clear
           </button>
         </div>
@@ -566,14 +593,14 @@ export default function App() {
             </defs>
 
             {/* Background */}
-            <rect className="canvas-bg" x={-5000} y={-5000} width={15000} height={15000} fill="#0a0a0f" />
-            <rect x={-5000} y={-5000} width={15000} height={15000} fill="url(#grid)" />
-            <rect x={-5000} y={-5000} width={15000} height={15000} fill="url(#grid-large)" />
+            <rect className="canvas-bg" x={-CANVAS_BG_SIZE / 3} y={-CANVAS_BG_SIZE / 3} width={CANVAS_BG_SIZE} height={CANVAS_BG_SIZE} fill="#0a0a0f" />
+            <rect x={-CANVAS_BG_SIZE / 3} y={-CANVAS_BG_SIZE / 3} width={CANVAS_BG_SIZE} height={CANVAS_BG_SIZE} fill="url(#grid)" />
+            <rect x={-CANVAS_BG_SIZE / 3} y={-CANVAS_BG_SIZE / 3} width={CANVAS_BG_SIZE} height={CANVAS_BG_SIZE} fill="url(#grid-large)" />
 
             {/* Edges */}
             {edges.map(edge => {
-              const srcNode = nodes.find(n => n.id === edge.source);
-              const tgtNode = nodes.find(n => n.id === edge.target);
+              const srcNode = nodeMap.get(edge.source);
+              const tgtNode = nodeMap.get(edge.target);
               return (
                 <CanvasEdge
                   key={edge.id}
@@ -621,7 +648,7 @@ export default function App() {
             <span>{nodes.length} component{nodes.length !== 1 ? 's' : ''}</span>
             <span>{edges.length} connection{edges.length !== 1 ? 's' : ''}</span>
             <span>{CLOUDS[cloud].name}</span>
-            <span className="desktop-only">Zoom: {Math.round(1200 / viewBox.w * 100)}%</span>
+            <span className="desktop-only">Zoom: {Math.round(INITIAL_VIEWBOX.w / viewBox.w * 100)}%</span>
             {connectMode && <span className="status-connect">CONNECT MODE</span>}
           </div>
 
