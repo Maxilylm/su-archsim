@@ -526,11 +526,13 @@ export default function App() {
       </header>
 
       <div className="main">
+        {/* Palette backdrop - must be outside palette-wrapper to avoid transform containing block */}
+        {isMobile && paletteOpen && (
+          <div className="palette-backdrop" onClick={() => setPaletteOpen(false)} />
+        )}
+
         {/* Palette - on mobile, overlay */}
         <div className={`palette-wrapper ${paletteOpen ? 'open' : ''}`}>
-          {isMobile && paletteOpen && (
-            <div className="palette-backdrop" onClick={() => setPaletteOpen(false)} />
-          )}
           <Palette
             cloud={cloud}
             onAddService={handleAddService}
