@@ -1,7 +1,8 @@
 import { CATEGORIES, getService, getCloudLabel, getCloudDesc, getCloudConfigSchema } from '../data/catalog';
 import { computeNodeLoad, getMaxRps, getLoadColor, getStatusLabel, formatRps } from '../data/traffic';
+import { estimateNodeCost, formatCost } from '../data/pricing';
 
-export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRemove }) {
+export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRemove, onDuplicate, isFailed, onToggleFail }) {
   if (!node) {
     return (
       <div className="config-panel">
@@ -21,26 +22,39 @@ export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRe
   const label = getCloudLabel(node.serviceId, cloud);
   const desc = getCloudDesc(node.serviceId, cloud);
 
-  const loadPct = computeNodeLoad(node.serviceId, node.category, sliders);
+  const loadPct = isFailed ? 0 : computeNodeLoad(node.serviceId, node.category, sliders);
   const maxRps = getMaxRps(node.serviceId);
   const currentRps = Math.round(maxRps * loadPct);
-  const loadColor = getLoadColor(loadPct);
-  const status = getStatusLabel(loadPct);
+  const loadColor = isFailed ? '#ef4444' : getLoadColor(loadPct);
+  const status = isFailed ? { label: 'FAILED', emoji: '💥' } : getStatusLabel(loadPct);
+  const cost = estimateNodeCost(node.serviceId, node.config, cloud);
 
   return (
     <div className="config-panel">
-      <div className="config-header" style={{ borderColor: catColor }}>
+      <div className="config-header" style={{ borderColor: isFailed ? '#ef4444' : catColor }}>
         <div className="config-title-row">
-          <span className="config-icon">{catIcon}</span>
+          <span className="config-icon">{isFailed ? '💥' : catIcon}</span>
           <div>
             <h3 className="config-title">{label}</h3>
             <span className="config-cloud">{cloud.toUpperCase()}</span>
           </div>
         </div>
         <p className="config-desc">{desc}</p>
-        <button className="config-remove" onClick={() => onRemove(node.id)} title="Remove component">
-          &#x2715; Remove
-        </button>
+        <div className="config-actions">
+          <button className="config-action-btn" onClick={() => onDuplicate(node.id)} title="Duplicate">
+            📋 Duplicate
+          </button>
+          <button
+            className={`config-action-btn ${isFailed ? 'config-action-active' : ''}`}
+            onClick={() => onToggleFail(node.id)}
+            title="Toggle failure mode"
+          >
+            {isFailed ? '✅ Restore' : '💥 Fail'}
+          </button>
+          <button className="config-remove" onClick={() => onRemove(node.id)} title="Remove component">
+            &#x2715; Remove
+          </button>
+        </div>
       </div>
 
       {/* Traffic stats */}
@@ -54,7 +68,7 @@ export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRe
           <div className="config-stat">
             <span className="config-stat-label">Current Load</span>
             <span className="config-stat-value" style={{ color: loadColor }}>
-              {formatRps(currentRps)} rps
+              {isFailed ? '0' : formatRps(currentRps)} rps
             </span>
           </div>
           <div className="config-stat">
@@ -64,9 +78,9 @@ export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRe
             </span>
           </div>
           <div className="config-stat">
-            <span className="config-stat-label">Utilization</span>
-            <span className="config-stat-value" style={{ color: loadColor }}>
-              {Math.round(loadPct * 100)}%
+            <span className="config-stat-label">Est. Cost</span>
+            <span className="config-stat-value config-stat-cost">
+              {formatCost(cost)}/mo
             </span>
           </div>
         </div>
@@ -74,7 +88,7 @@ export default function ConfigPanel({ node, cloud, sliders, onUpdateConfig, onRe
         <div className="config-loadbar-bg">
           <div
             className="config-loadbar-fill"
-            style={{ width: `${Math.round(loadPct * 100)}%`, background: loadColor, transition: 'all 0.4s ease' }}
+            style={{ width: `${isFailed ? 0 : Math.round(loadPct * 100)}%`, background: loadColor, transition: 'all 0.4s ease' }}
           />
         </div>
       </div>
