@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import SERVICES, { CATEGORIES, getCloudLabel, getCloudDesc } from '../data/catalog';
 
-export default function Palette({ cloud, onAddService }) {
+export default function Palette({ cloud, onAddService, onDragStart }) {
   const [expandedCat, setExpandedCat] = useState(null);
   const [search, setSearch] = useState('');
 
@@ -15,6 +15,15 @@ export default function Palette({ cloud, onAddService }) {
     : null;
 
   const categoryIds = Object.keys(CATEGORIES);
+
+  // Drag handlers for palette items
+  const handleItemMouseDown = (e, serviceId) => {
+    if (onDragStart) onDragStart(e, serviceId);
+  };
+
+  const handleItemTouchStart = (e, serviceId) => {
+    if (onDragStart) onDragStart(e, serviceId);
+  };
 
   return (
     <div className="palette">
@@ -42,10 +51,14 @@ export default function Palette({ cloud, onAddService }) {
               key={s.id}
               className="palette-item"
               onClick={() => onAddService(s.id)}
+              onMouseDown={(e) => handleItemMouseDown(e, s.id)}
+              onTouchStart={(e) => handleItemTouchStart(e, s.id)}
               title={getCloudDesc(s.id, cloud)}
+              draggable={false}
             >
               <span className="palette-item-icon">{CATEGORIES[s.category]?.icon}</span>
               <span className="palette-item-label">{getCloudLabel(s.id, cloud)}</span>
+              <span className="palette-drag-hint">⠿</span>
             </button>
           ))}
         </div>
@@ -77,10 +90,14 @@ export default function Palette({ cloud, onAddService }) {
                     key={s.id}
                     className="palette-item"
                     onClick={() => onAddService(s.id)}
+                    onMouseDown={(e) => handleItemMouseDown(e, s.id)}
+                    onTouchStart={(e) => handleItemTouchStart(e, s.id)}
                     title={getCloudDesc(s.id, cloud)}
+                    draggable={false}
                   >
                     <span className="palette-item-dot" style={{ background: cat.color }} />
                     <span className="palette-item-label">{getCloudLabel(s.id, cloud)}</span>
+                    <span className="palette-drag-hint">⠿</span>
                   </button>
                 ))}
               </div>

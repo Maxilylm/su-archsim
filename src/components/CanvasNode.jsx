@@ -3,7 +3,7 @@ import { getCloudLabel, getCloudDesc } from '../data/catalog';
 import { computeNodeLoad, getMaxRps, getLoadColor } from '../data/traffic';
 
 export default function CanvasNode({
-  node, cloud, isSelected, isConnectSource, connectMode, sliders, onMouseDown, onClick,
+  node, cloud, isSelected, isConnectSource, connectMode, sliders, onMouseDown, onTouchStart, onClick,
 }) {
   const catColor = CATEGORIES[node.category]?.color || '#888';
   const catIcon = CATEGORIES[node.category]?.icon || '?';
@@ -23,8 +23,9 @@ export default function CanvasNode({
     <g
       transform={`translate(${node.x}, ${node.y})`}
       onMouseDown={onMouseDown}
+      onTouchStart={onTouchStart}
       onClick={onClick}
-      style={{ cursor: connectMode ? 'crosshair' : 'grab' }}
+      style={{ cursor: connectMode ? 'crosshair' : 'grab', touchAction: 'none' }}
     >
       {/* Critical pulse */}
       {loadPct > 0.85 && (
