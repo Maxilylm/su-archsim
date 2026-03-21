@@ -3,7 +3,7 @@ import { CATEGORIES } from '../data/catalog';
 import { getConnectionLabel } from '../data/connections';
 import { computeNodeLoad, getLoadColor } from '../data/traffic';
 
-const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected, sliders, onClick }) {
+const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected, showLabel, sliders, isFailed, onClick }) {
   if (!sourceNode || !targetNode) return null;
 
   const x1 = sourceNode.x;
@@ -18,7 +18,9 @@ const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected
   const tgtLoad = computeNodeLoad(targetNode.serviceId, targetNode.category, sliders);
   const edgeLoad = Math.min(srcLoad, tgtLoad);
   const hasTraffic = edgeLoad > 0.01;
-  const edgeColor = hasTraffic ? getLoadColor(edgeLoad) : catColor;
+
+  // Failed mode
+  const edgeColor = isFailed ? '#ef4444' : (hasTraffic ? getLoadColor(edgeLoad) : catColor);
 
   // Curve calculation
   const dx = x2 - x1;
@@ -41,10 +43,10 @@ const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected
 
   const connLabel = getConnectionLabel(sourceNode.serviceId, targetNode.serviceId);
 
-  // Animation speed: faster when more load
-  const animDur = hasTraffic ? `${Math.max(0.4, 3 - edgeLoad * 2.6)}s` : '4s';
-  const lineWidth = hasTraffic ? 1.5 + edgeLoad * 2 : 1.5;
-  const lineOpacity = hasTraffic ? 0.3 + edgeLoad * 0.5 : 0.25;
+  // Animation speed
+  const animDur = isFailed ? '6s' : (hasTraffic ? `${Math.max(0.4, 3 - edgeLoad * 2.6)}s` : '4s');
+  const lineWidth = isFailed ? 1 : (hasTraffic ? 1.5 + edgeLoad * 2 : 1.5);
+  const lineOpacity = isFailed ? 0.4 : (hasTraffic ? 0.3 + edgeLoad * 0.5 : 0.25);
   const dotSize = hasTraffic ? 2 + edgeLoad * 3 : 2;
 
   return (
@@ -52,16 +54,9 @@ const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected
       {/* Hit area */}
       <path d={pathD} fill="none" stroke="transparent" strokeWidth={14} />
 
-      {/* Base glow (only with traffic) */}
-      {hasTraffic && edgeLoad > 0.5 && (
-        <path
-          d={pathD}
-          fill="none"
-          stroke={edgeColor}
-          strokeWidth={lineWidth + 4}
-          opacity={0.08}
-          style={{ transition: 'all 0.4s ease' }}
-        />
+      {/* Base glow */}
+      {hasTraffic && edgeLoad > 0.5 && !isFailed && (
+        <path d={pathD} fill="none" stroke={edgeColor} strokeWidth={lineWidth + 4} opacity={0.08} style={{ transition: 'all 0.4s ease' }} />
       )}
 
       {/* Main path */}
@@ -71,6 +66,7 @@ const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected
         stroke={isSelected ? '#22d3ee' : edgeColor}
         strokeWidth={isSelected ? 2.5 : lineWidth}
         opacity={isSelected ? 0.9 : lineOpacity}
+        strokeDasharray={isFailed ? '8,4' : 'none'}
         style={{ transition: 'all 0.4s ease' }}
       />
 
@@ -81,23 +77,35 @@ const CanvasEdge = memo(function CanvasEdge({ sourceNode, targetNode, isSelected
         opacity={isSelected ? 0.9 : lineOpacity}
       />
 
-      {/* Animated particles — more particles when higher load */}
-      <circle r={dotSize} fill={edgeColor} opacity={0.8}>
-        <animateMotion dur={animDur} repeatCount="indefinite" path={pathD} />
-      </circle>
-      {hasTraffic && edgeLoad > 0.3 && (
-        <circle r={dotSize * 0.7} fill={edgeColor} opacity={0.5}>
-          <animateMotion dur={animDur} begin={`${parseFloat(animDur) * 0.5}s`} repeatCount="indefinite" path={pathD} />
-        </circle>
-      )}
-      {hasTraffic && edgeLoad > 0.7 && (
-        <circle r={dotSize * 0.5} fill={edgeColor} opacity={0.4}>
-          <animateMotion dur={animDur} begin={`${parseFloat(animDur) * 0.25}s`} repeatCount="indefinite" path={pathD} />
-        </circle>
+      {/* Animated particles */}
+      {!isFailed && (
+        <>
+          <circle r={dotSize} fill={edgeColor} opacity={0.8}>
+            <animateMotion dur={animDur} repeatCount="indefinite" path={pathD} />
+          </circle>
+          {hasTraffic && edgeLoad > 0.3 && (
+            <circle r={dotSize * 0.7} fill={edgeColor} opacity={0.5}>
+              <animateMotion dur={animDur} begin={`${parseFloat(animDur) * 0.5}s`} repeatCount="indefinite" path={pathD} />
+            </circle>
+          )}
+          {hasTraffic && edgeLoad > 0.7 && (
+            <circle r={dotSize * 0.5} fill={edgeColor} opacity={0.4}>
+              <animateMotion dur={animDur} begin={`${parseFloat(animDur) * 0.25}s`} repeatCount="indefinite" path={pathD} />
+            </circle>
+          )}
+        </>
       )}
 
-      {/* Label on selected */}
-      {isSelected && (
+      {/* Failed X marker */}
+      {isFailed && (
+        <g transform={`translate(${(x1 + x2) / 2 + nx * 0.3}, ${(y1 + y2) / 2 + ny * 0.3})`}>
+          <circle r={8} fill="rgba(239,68,68,0.9)" />
+          <text x={0} y={3.5} fill="#fff" fontSize="10" fontWeight="700" textAnchor="middle">✕</text>
+        </g>
+      )}
+
+      {/* Label — shown always if showLabel is on, or on selection */}
+      {(isSelected || showLabel) && (
         <g transform={`translate(${(x1 + x2) / 2 + nx * 0.3}, ${(y1 + y2) / 2 + ny * 0.3})`}>
           <rect x={-44} y={-10} width={88} height={16} rx={4} fill="rgba(0,0,0,0.9)" stroke="rgba(255,255,255,0.15)" />
           <text x={0} y={2} fill="#fff" fontSize="8" fontWeight="500" textAnchor="middle" fontFamily="'Inter', sans-serif">
