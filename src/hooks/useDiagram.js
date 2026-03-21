@@ -1,0 +1,189 @@
+import { useState, useCallback } from 'react';
+import { getService } from '../data/catalog';
+import { validateConnection } from '../data/connections';
+
+let nodeIdCounter = 1;
+
+export default function useDiagram() {
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [connectMode, setConnectMode] = useState(false);
+  const [connectSource, setConnectSource] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((msg, type = 'error') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // Add a new node to the canvas
+  const addNode = useCallback((serviceId, x, y) => {
+    const service = getService(serviceId);
+    if (!service) return;
+
+    // Build default config from schema
+    const config = {};
+    for (const field of service.configSchema) {
+      config[field.key] = field.default;
+    }
+
+    const id = `node_${nodeIdCounter++}`;
+    setNodes(prev => [...prev, {
+      id,
+      serviceId,
+      category: service.category,
+      x,
+      y,
+      config,
+    }]);
+    setSelectedId(id);
+    return id;
+  }, []);
+
+  // Remove a node and its edges
+  const removeNode = useCallback((nodeId) => {
+    setNodes(prev => prev.filter(n => n.id !== nodeId));
+    setEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
+    if (selectedId === nodeId) setSelectedId(null);
+    if (connectSource === nodeId) setConnectSource(null);
+  }, [selectedId, connectSource]);
+
+  // Move a node
+  const moveNode = useCallback((nodeId, x, y) => {
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, x, y } : n));
+  }, []);
+
+  // Update node config
+  const updateNodeConfig = useCallback((nodeId, key, value) => {
+    setNodes(prev => prev.map(n =>
+      n.id === nodeId
+        ? { ...n, config: { ...n.config, [key]: value } }
+        : n
+    ));
+  }, []);
+
+  // Handle node click (select or connect)
+  const handleNodeClick = useCallback((nodeId) => {
+    if (!connectMode) {
+      setSelectedId(nodeId);
+      return;
+    }
+
+    if (!connectSource) {
+      setConnectSource(nodeId);
+      showToast('Now click the target component', 'info');
+      return;
+    }
+
+    if (connectSource === nodeId) {
+      setConnectSource(null);
+      showToast('Cannot connect a component to itself', 'error');
+      return;
+    }
+
+    // Check if edge already exists
+    const exists = edges.some(e =>
+      (e.source === connectSource && e.target === nodeId) ||
+      (e.source === nodeId && e.target === connectSource)
+    );
+    if (exists) {
+      setConnectSource(null);
+      showToast('Connection already exists', 'error');
+      return;
+    }
+
+    // Validate connection
+    const srcNode = nodes.find(n => n.id === connectSource);
+    const tgtNode = nodes.find(n => n.id === nodeId);
+    if (!srcNode || !tgtNode) {
+      setConnectSource(null);
+      return;
+    }
+
+    const result = validateConnection(
+      srcNode.serviceId, tgtNode.serviceId,
+      srcNode.category, tgtNode.category
+    );
+
+    if (!result.allowed) {
+      setConnectSource(null);
+      showToast(result.reason, 'error');
+      return;
+    }
+
+    // Add edge
+    setEdges(prev => [...prev, {
+      id: `edge_${connectSource}_${nodeId}`,
+      source: connectSource,
+      target: nodeId,
+    }]);
+    setConnectSource(null);
+    showToast('Connection created', 'success');
+  }, [connectMode, connectSource, edges, nodes, showToast]);
+
+  // Remove an edge
+  const removeEdge = useCallback((edgeId) => {
+    setEdges(prev => prev.filter(e => e.id !== edgeId));
+  }, []);
+
+  // Toggle connect mode
+  const toggleConnectMode = useCallback(() => {
+    setConnectMode(prev => !prev);
+    setConnectSource(null);
+  }, []);
+
+  // Clear canvas
+  const clearCanvas = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setSelectedId(null);
+    setConnectSource(null);
+    nodeIdCounter = 1;
+  }, []);
+
+  // Export diagram as JSON
+  const exportDiagram = useCallback(() => {
+    return JSON.stringify({ nodes, edges }, null, 2);
+  }, [nodes, edges]);
+
+  // Import diagram from JSON
+  const importDiagram = useCallback((json) => {
+    try {
+      const data = JSON.parse(json);
+      if (data.nodes && data.edges) {
+        setNodes(data.nodes);
+        setEdges(data.edges);
+        const maxId = Math.max(0, ...data.nodes.map(n => parseInt(n.id.split('_')[1]) || 0));
+        nodeIdCounter = maxId + 1;
+        setSelectedId(null);
+        showToast('Diagram imported', 'success');
+      }
+    } catch {
+      showToast('Invalid diagram JSON', 'error');
+    }
+  }, [showToast]);
+
+  const selectedNode = nodes.find(n => n.id === selectedId);
+
+  return {
+    nodes,
+    edges,
+    selectedId,
+    selectedNode,
+    connectMode,
+    connectSource,
+    toast,
+    addNode,
+    removeNode,
+    moveNode,
+    updateNodeConfig,
+    handleNodeClick,
+    removeEdge,
+    toggleConnectMode,
+    setSelectedId,
+    clearCanvas,
+    exportDiagram,
+    importDiagram,
+  };
+}

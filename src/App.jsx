@@ -1,155 +1,333 @@
-import { useState, useMemo } from 'react';
-import { CLOUDS, LAYOUT, CONNECTIONS } from './data/clouds';
-import ArchNode from './components/ArchNode';
-import Connection from './components/Connection';
-import Controls from './components/Controls';
-import Sidebar from './components/Sidebar';
+import { useState, useRef, useCallback } from 'react';
+import useDiagram from './hooks/useDiagram';
+import Palette from './components/Palette';
+import CanvasNode from './components/CanvasNode';
+import CanvasEdge from './components/CanvasEdge';
+import ConfigPanel from './components/ConfigPanel';
 import './App.css';
 
-function computeLoads(cloud, sliders) {
-  const comps = CLOUDS[cloud].components;
-  const loads = {};
+const CLOUDS = {
+  aws:   { name: 'AWS',          color: '#FF9900' },
+  gcp:   { name: 'Google Cloud', color: '#4285F4' },
+  azure: { name: 'Azure',        color: '#0078D4' },
+};
 
-  const weights = {
-    dns:       { traffic: 0.9, throughput: 0.1, users: 0.8 },
-    cdn:       { traffic: 0.8, throughput: 0.7, users: 0.6 },
-    lb:        { traffic: 1.0, throughput: 0.3, users: 0.9 },
-    gateway:   { traffic: 0.9, throughput: 0.2, users: 0.7 },
-    compute:   { traffic: 0.7, throughput: 0.5, users: 1.0 },
-    functions: { traffic: 0.6, throughput: 0.3, users: 0.5 },
-    emr:       { traffic: 0.2, throughput: 1.0, users: 0.1 },
-    cache:     { traffic: 0.8, throughput: 0.4, users: 0.9 },
-    db:        { traffic: 0.6, throughput: 0.8, users: 0.7 },
-    queue:     { traffic: 0.5, throughput: 0.6, users: 0.3 },
-    storage:   { traffic: 0.3, throughput: 1.0, users: 0.2 },
-    stream:    { traffic: 0.4, throughput: 0.9, users: 0.2 },
-  };
-
-  for (const [id, comp] of Object.entries(comps)) {
-    const w = weights[id] || { traffic: 0.5, throughput: 0.5, users: 0.5 };
-    const weighted =
-      (sliders.traffic / 100) * w.traffic * 0.4 +
-      (sliders.throughput / 100) * w.throughput * 0.3 +
-      (sliders.users / 100) * w.users * 0.3;
-    loads[id] = Math.round(comp.maxRps * weighted);
-  }
-
-  return loads;
-}
-
-const SVG_W = 880;
-const SVG_H = 580;
+const SVG_W = 3000;
+const SVG_H = 2000;
 
 export default function App() {
   const [cloud, setCloud] = useState('aws');
-  const [selected, setSelected] = useState(null);
-  const [sliders, setSliders] = useState({ traffic: 30, throughput: 25, users: 20 });
+  const {
+    nodes, edges, selectedId, selectedNode, connectMode, connectSource, toast,
+    addNode, removeNode, moveNode, updateNodeConfig, handleNodeClick,
+    removeEdge, toggleConnectMode, setSelectedId, clearCanvas, exportDiagram, importDiagram,
+  } = useDiagram();
 
-  const components = CLOUDS[cloud].components;
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const svgRef = useRef(null);
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 1200, h: 800 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState(null);
+  const [draggingNode, setDraggingNode] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
   const cloudColor = CLOUDS[cloud].color;
-  const loads = useMemo(() => computeLoads(cloud, sliders), [cloud, sliders]);
+
+  // Convert screen coords to SVG coords
+  const screenToSvg = useCallback((screenX, screenY) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: viewBox.x + (screenX - rect.left) / rect.width * viewBox.w,
+      y: viewBox.y + (screenY - rect.top) / rect.height * viewBox.h,
+    };
+  }, [viewBox]);
+
+  // Add service from palette
+  const handleAddService = useCallback((serviceId) => {
+    // Place in center of current view
+    const cx = viewBox.x + viewBox.w / 2 + (Math.random() - 0.5) * 100;
+    const cy = viewBox.y + viewBox.h / 2 + (Math.random() - 0.5) * 100;
+    addNode(serviceId, cx, cy);
+  }, [addNode, viewBox]);
+
+  // Node drag start
+  const handleNodeMouseDown = useCallback((e, nodeId) => {
+    if (connectMode) return;
+    e.stopPropagation();
+    const svgCoord = screenToSvg(e.clientX, e.clientY);
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      setDraggingNode(nodeId);
+      setDragOffset({ x: svgCoord.x - node.x, y: svgCoord.y - node.y });
+    }
+  }, [connectMode, screenToSvg, nodes]);
+
+  // Canvas mouse move (drag node or pan)
+  const handleMouseMove = useCallback((e) => {
+    if (draggingNode) {
+      const svgCoord = screenToSvg(e.clientX, e.clientY);
+      moveNode(draggingNode, svgCoord.x - dragOffset.x, svgCoord.y - dragOffset.y);
+      return;
+    }
+    if (isPanning && panStart) {
+      const dx = (e.clientX - panStart.x) / svgRef.current.getBoundingClientRect().width * viewBox.w;
+      const dy = (e.clientY - panStart.y) / svgRef.current.getBoundingClientRect().height * viewBox.h;
+      setViewBox(prev => ({ ...prev, x: prev.x - dx, y: prev.y - dy }));
+      setPanStart({ x: e.clientX, y: e.clientY });
+    }
+  }, [draggingNode, isPanning, panStart, viewBox, screenToSvg, moveNode, dragOffset]);
+
+  // Canvas mouse up
+  const handleMouseUp = useCallback(() => {
+    setDraggingNode(null);
+    setIsPanning(false);
+    setPanStart(null);
+  }, []);
+
+  // Canvas mouse down (start pan)
+  const handleCanvasMouseDown = useCallback((e) => {
+    if (e.target === svgRef.current || e.target.tagName === 'rect' && e.target.classList.contains('canvas-bg')) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      setSelectedId(null);
+      setSelectedEdgeId(null);
+    }
+  }, [setSelectedId]);
+
+  // Zoom
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const scale = e.deltaY > 0 ? 1.1 : 0.9;
+    const svgCoord = screenToSvg(e.clientX, e.clientY);
+
+    setViewBox(prev => {
+      const newW = Math.max(400, Math.min(4000, prev.w * scale));
+      const newH = Math.max(300, Math.min(3000, prev.h * scale));
+      const ratio = newW / prev.w;
+      return {
+        x: svgCoord.x - (svgCoord.x - prev.x) * ratio,
+        y: svgCoord.y - (svgCoord.y - prev.y) * ratio,
+        w: newW,
+        h: newH,
+      };
+    });
+  }, [screenToSvg]);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selectedId) {
+        removeNode(selectedId);
+      } else if (selectedEdgeId) {
+        removeEdge(selectedEdgeId);
+        setSelectedEdgeId(null);
+      }
+    }
+    if (e.key === 'Escape') {
+      setSelectedId(null);
+      setSelectedEdgeId(null);
+      if (connectMode) toggleConnectMode();
+    }
+  }, [selectedId, selectedEdgeId, connectMode, removeNode, removeEdge, setSelectedId, toggleConnectMode]);
+
+  // Export/import
+  const handleExport = () => {
+    const json = exportDiagram();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `archsim-${cloud}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => importDiagram(ev.target.result);
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
 
   return (
-    <div className="app">
+    <div className="app" tabIndex={0} onKeyDown={handleKeyDown}>
+      {/* Header / Toolbar */}
       <header className="header">
         <div className="header-left">
           <h1>
             <span style={{ color: cloudColor }}>Arch</span>Sim
-            <sup style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginLeft: '4px' }}>TM</sup>
+            <sup className="tm">TM</sup>
           </h1>
-          <span className="subtitle">System Architecture Diagram &amp; Load Simulator</span>
         </div>
-        <a
-          href="https://github.com/maxilylm/su-archsim"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="github-link"
-        >
+
+        <div className="toolbar">
+          {/* Cloud selector */}
+          <div className="toolbar-group">
+            {Object.entries(CLOUDS).map(([key, c]) => (
+              <button
+                key={key}
+                className={`tool-btn cloud-btn ${cloud === key ? 'active' : ''}`}
+                style={{
+                  borderColor: cloud === key ? c.color : undefined,
+                  color: cloud === key ? c.color : undefined,
+                  background: cloud === key ? `${c.color}15` : undefined,
+                }}
+                onClick={() => setCloud(key)}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="toolbar-divider" />
+
+          {/* Tools */}
+          <button
+            className={`tool-btn ${connectMode ? 'active-tool' : ''}`}
+            onClick={toggleConnectMode}
+            title="Connect components (C)"
+          >
+            {connectMode ? '🔗 Connecting...' : '🔗 Connect'}
+          </button>
+
+          <button
+            className="tool-btn"
+            onClick={() => {
+              if (selectedId) removeNode(selectedId);
+              else if (selectedEdgeId) { removeEdge(selectedEdgeId); setSelectedEdgeId(null); }
+            }}
+            disabled={!selectedId && !selectedEdgeId}
+            title="Delete selected (Del)"
+          >
+            🗑️ Delete
+          </button>
+
+          <div className="toolbar-divider" />
+
+          <button className="tool-btn" onClick={handleExport} title="Export diagram">
+            📤 Export
+          </button>
+          <button className="tool-btn" onClick={handleImport} title="Import diagram">
+            📥 Import
+          </button>
+          <button className="tool-btn danger" onClick={clearCanvas} title="Clear canvas">
+            ⚠️ Clear
+          </button>
+        </div>
+
+        <a href="https://github.com/maxilylm/su-archsim" target="_blank" rel="noopener noreferrer" className="github-link">
           GitHub
         </a>
       </header>
 
       <div className="main">
-        <Controls cloud={cloud} setCloud={setCloud} sliders={sliders} setSliders={setSliders} />
+        {/* Palette */}
+        <Palette cloud={cloud} onAddService={handleAddService} />
 
-        <div className="diagram-container">
-          <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="diagram-svg">
+        {/* Canvas */}
+        <div className="canvas-container">
+          <svg
+            ref={svgRef}
+            viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+            className="canvas-svg"
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+          >
             <defs>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5" />
+              <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
+              </pattern>
+              <pattern id="grid-large" width="250" height="250" patternUnits="userSpaceOnUse">
+                <path d="M 250 0 L 0 0 0 250" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
               </pattern>
             </defs>
-            <rect width={SVG_W} height={SVG_H} fill="url(#grid)" />
 
-            {/* Tier labels */}
-            <text x="20" y="50" fill="rgba(255,255,255,0.15)" fontSize="11" fontWeight="600" letterSpacing="3">
-              EDGE / INGRESS
-            </text>
-            <text x="20" y="210" fill="rgba(255,255,255,0.15)" fontSize="11" fontWeight="600" letterSpacing="3">
-              COMPUTE
-            </text>
-            <text x="20" y="370" fill="rgba(255,255,255,0.15)" fontSize="11" fontWeight="600" letterSpacing="3">
-              DATA / STORAGE
-            </text>
+            {/* Background */}
+            <rect className="canvas-bg" x={-5000} y={-5000} width={15000} height={15000} fill="#0a0a0f" />
+            <rect x={-5000} y={-5000} width={15000} height={15000} fill="url(#grid)" />
+            <rect x={-5000} y={-5000} width={15000} height={15000} fill="url(#grid-large)" />
 
-            <line x1="0" y1="150" x2={SVG_W} y2="150" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="8,6" />
-            <line x1="0" y1="310" x2={SVG_W} y2="310" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="8,6" />
-
-            {CONNECTIONS.map(([from, to], i) => {
-              const p1 = LAYOUT[from];
-              const p2 = LAYOUT[to];
-              if (!p1 || !p2) return null;
-              const connLoad = Math.min(loads[from] || 0, loads[to] || 0);
-              const connMax = Math.min(
-                components[from]?.maxRps || 1,
-                components[to]?.maxRps || 1
-              );
+            {/* Edges */}
+            {edges.map(edge => {
+              const srcNode = nodes.find(n => n.id === edge.source);
+              const tgtNode = nodes.find(n => n.id === edge.target);
               return (
-                <Connection
-                  key={`${from}-${to}`}
-                  x1={p1.x} y1={p1.y}
-                  x2={p2.x} y2={p2.y}
-                  load={connLoad}
-                  maxLoad={connMax}
-                  cloudColor={cloudColor}
+                <CanvasEdge
+                  key={edge.id}
+                  edge={edge}
+                  sourceNode={srcNode}
+                  targetNode={tgtNode}
+                  isSelected={selectedEdgeId === edge.id}
+                  onClick={(e) => { e.stopPropagation(); setSelectedEdgeId(edge.id); setSelectedId(null); }}
                 />
               );
             })}
 
-            {Object.entries(LAYOUT).map(([id, pos]) => {
-              if (!components[id]) return null;
-              return (
-                <ArchNode
-                  key={`${cloud}-${id}`}
-                  id={id}
-                  x={pos.x} y={pos.y}
-                  component={components[id]}
-                  cloud={cloud}
-                  load={loads[id] || 0}
-                  cloudColor={cloudColor}
-                  onClick={setSelected}
-                />
-              );
-            })}
+            {/* Nodes */}
+            {nodes.map(node => (
+              <CanvasNode
+                key={node.id}
+                node={node}
+                cloud={cloud}
+                isSelected={selectedId === node.id}
+                isConnectSource={connectSource === node.id}
+                connectMode={connectMode}
+                onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick(node.id); setSelectedEdgeId(null); }}
+              />
+            ))}
 
-            <g transform="translate(30, 80)">
-              <text fill="rgba(255,255,255,0.25)" fontSize="28">&#x1F464;</text>
-              <text x="0" y="42" fill="rgba(255,255,255,0.2)" fontSize="9" fontFamily="monospace">
-                {sliders.users > 0 ? `~${Math.round(sliders.users * 100)} users` : 'No users'}
-              </text>
-            </g>
+            {/* Empty state */}
+            {nodes.length === 0 && (
+              <g transform={`translate(${viewBox.x + viewBox.w / 2}, ${viewBox.y + viewBox.h / 2})`}>
+                <text fill="rgba(255,255,255,0.15)" fontSize="20" textAnchor="middle" fontWeight="600" y={-10}>
+                  Click components in the palette to add them
+                </text>
+                <text fill="rgba(255,255,255,0.1)" fontSize="13" textAnchor="middle" y={15}>
+                  Drag to move • Scroll to zoom • Del to remove
+                </text>
+              </g>
+            )}
           </svg>
+
+          {/* Status bar */}
+          <div className="status-bar">
+            <span>{nodes.length} component{nodes.length !== 1 ? 's' : ''}</span>
+            <span>{edges.length} connection{edges.length !== 1 ? 's' : ''}</span>
+            <span>{CLOUDS[cloud].name}</span>
+            <span>Zoom: {Math.round(1200 / viewBox.w * 100)}%</span>
+            {connectMode && <span className="status-connect">CONNECT MODE</span>}
+          </div>
         </div>
 
-        <Sidebar cloud={cloud} selected={selected} components={components} loads={loads} />
+        {/* Config Panel */}
+        <ConfigPanel
+          node={selectedNode}
+          cloud={cloud}
+          onUpdateConfig={updateNodeConfig}
+          onRemove={removeNode}
+        />
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }

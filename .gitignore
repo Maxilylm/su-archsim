@@ -26,3 +26,4 @@ dist-ssr
 # SU Generator checkpoint files
 .status
 .attempts
+.vercel
