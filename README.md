@@ -2,7 +2,7 @@
 
 > A drag-and-drop canvas for sketching cloud architecture diagrams, with live cost estimates and traffic simulation.
 
-**[Live demo](https://su-archsim.vercel.app)**
+**[Live demo](https://archsim-mlx.vercel.app)**
 
 ArchSim is a visual editor for cloud architecture diagrams. Drag services from a palette of 40+ components onto an infinite pan-and-zoom canvas, wire them together, and switch the whole diagram between AWS, Google Cloud, and Azure equivalents. Beyond drawing, it estimates monthly cost as you build, runs a lint pass for architectural smells, and simulates request traffic to surface throughput and bottlenecks.
 
@@ -34,4 +34,4 @@ No environment variables are required.
 
 ---
 
-Part of a series of 91 small web apps. [Browse them all](https://su-slopmachine.vercel.app).
+Part of a series of 91 small web apps. [Browse them all](https://lorenzoylosada.vercel.app).
