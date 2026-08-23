@@ -27,3 +27,9 @@ dist-ssr
 .status
 .attempts
 .vercel
+node_modules/
+dist/
+.next/
+.env
+.env.local
+.claude/
