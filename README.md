@@ -1,16 +1,37 @@
-# React + Vite
+# ArchSim
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> A drag-and-drop canvas for sketching cloud architecture diagrams, with live cost estimates and traffic simulation.
 
-Currently, two official plugins are available:
+**[Live demo](https://su-archsim.vercel.app)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+ArchSim is a visual editor for cloud architecture diagrams. Drag services from a palette of 40+ components onto an infinite pan-and-zoom canvas, wire them together, and switch the whole diagram between AWS, Google Cloud, and Azure equivalents. Beyond drawing, it estimates monthly cost as you build, runs a lint pass for architectural smells, and simulates request traffic to surface throughput and bottlenecks.
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Drag-and-drop canvas with 40+ cloud service components and node-to-node connections
+- Provider switching across AWS, GCP, and Azure
+- Eight prebuilt templates (three-tier, serverless API, microservices, data pipeline, ML platform, event-driven, and more)
+- Live monthly cost estimation per node and for the whole diagram
+- Traffic simulation with RPS/throughput analysis and a lint panel for architecture warnings
+- Undo/redo, minimap, keyboard shortcuts, JSON import/export, and SVG image export
+- Infinite pan/zoom canvas with mobile touch support
 
-## Expanding the ESLint configuration
+## Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- React 19, built with Vite
+- SVG-based custom canvas rendering (no diagramming library)
+- `localStorage` for persisting the selected cloud provider
+- Frontend-only — no backend or external API
+
+## Running locally
+
+```bash
+npm install
+npm run dev
+```
+
+No environment variables are required.
+
+---
+
+Part of a series of 91 small web apps. [Browse them all](https://su-slopmachine.vercel.app).
